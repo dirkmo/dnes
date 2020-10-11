@@ -1,0 +1,3 @@
+[submodule "d6502"]
+	path = d6502
+	url = https://github.com/dirkmo/d6502
