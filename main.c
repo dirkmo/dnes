@@ -23,11 +23,7 @@ struct dma_t {
 } dma = { .page = 2, .count = -1 };
 
 
-uint8_t memory[0x10000];
-
 uint8_t ram_internal[0x800];
-
-// #define printf(...) (void)0;
 
 int EMULATION_END = 0;
 uint32_t run_count = 0;
@@ -116,49 +112,6 @@ void print_regs(d6502_t *cpu) {
     printf("A: %02X, X: %02X, Y: %02X, SP: %02X, PC: %02X, %s\n", cpu->a, cpu->x, cpu->y, cpu->sp, cpu->pc, status);
 }
 
-void memory_dump(uint16_t addr, int cols, int rows) {
-    for (int r = 0; r < rows; r++ ) {
-        printf("$%04X: ", addr + r*cols);
-        for (int c = 0; c < cols; c++) {
-            printf("%02X ", memory[addr + r*cols + c]);
-        }
-        printf("\n");
-    }
-}
-
-int read_line(char *s, int maxlen) 
-{
-    int ch;
-    int i = 0;
-    while( (ch = getchar()) != '\n' && ch != EOF && i < maxlen-1) {
-        s[i++] = ch;
-    }
-    s[i] = 0;
-    return i;
-}
-
-void handle(d6502_t *cpu, const char *cmd) {
-    unsigned int addr;
-    if (strcmp(cmd, "exit") == 0) {
-        EMULATION_END = 1;
-    } else if(strstr(cmd, "dump") != 0 && sscanf(cmd, "dump %x", &addr) == 1) {
-        memory_dump(addr, 16, 8);
-    } else if(strstr(cmd, "regs")) {
-        print_regs(cpu);
-    } else if(strstr(cmd, "run") != 0 ) {
-        int argc = sscanf(cmd, "run %d", &addr);
-        if (argc == 1) {
-            run_count = addr;
-        } else {
-            run_count = 0xFFFFffff;
-        }
-    } else if(strstr(cmd, "break") != 0 && sscanf(cmd, "break %x", &addr) == 1) {
-        breakpoint = addr;
-    } else if(strlen(cmd) > 0) {
-        printf("Unknown command '%s'\n", cmd);
-    }
-}
-
 void get_raw_instruction(d6502_t *cpu, char raw[]) {
     char temp[10];
     uint8_t dat = cpu->read(cpu->pc);
@@ -200,17 +153,7 @@ int main(int argc, char *argv[]) {
     
     d6502_reset(&cpu);
     
-#ifdef FILELOG
-    FILE *log = NULL;
-    log = fopen("log.txt", "w");
-    char logstr[128];
-#endif
     int instruction_counter = 1;
-#if 0
-    char asmcode[32];
-    char raw[16];
-    char buf[256];
-#endif
     SDL_Event e;
     int nmi_count = 0;
     while( EMULATION_END == 0) {
@@ -274,37 +217,6 @@ int main(int argc, char *argv[]) {
             }
         } // while (SDL_PollEvent(&e))
 
-#if 0
-        d6502_disassemble(&cpu, cpu.pc, asmcode);
-
-        get_raw_instruction(&cpu, raw);
-        print_regs(&cpu);
-        do {
-            printf("\n%d $%04X: %s   %s> ", instruction_counter, cpu.pc, raw, asmcode);
-            if (breakpoint == 0) {
-                if( instruction_counter < run_count ) break;
-            } else if (breakpoint != cpu.pc) {
-                break;
-            } else {
-                breakpoint = 0;
-            }
-            buf[0] = 0;
-            read_line(buf, sizeof(buf));
-            handle(&cpu, buf);
-        } while(strlen(buf) > 0);
-        printf("\n");
-#ifdef FILELOG
-        sprintf(logstr, "%04X  %s  %s", cpu.pc, raw, asmcode);
-        int p = strlen(logstr);
-        while( p < 48 ) {
-            logstr[p++] = ' ';
-        }
-        sprintf(logstr+p, "A:%02X X:%02X Y:%02X P:%02X SP:%02X\n", cpu.a, cpu.x, cpu.y, cpu.st, cpu.sp);
-        fwrite(logstr, strlen(logstr), 1, log);
-        fflush(log);
-#endif
-#endif
-
         if (stop_frame != frame || frame_step == 0 ) {
 
             int clock = 0;
@@ -339,9 +251,6 @@ int main(int argc, char *argv[]) {
             frame++;
         }
     }
-#ifdef FILELOG
-    fclose(log);
-#endif
 
     return 0;
 }
